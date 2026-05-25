@@ -1,0 +1,7 @@
+# 忽略所有本地环境变量文件
+.env
+.env.local
+.env.*.local
+node_modules
+package-lock.json
+exports
