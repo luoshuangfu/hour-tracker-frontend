@@ -73,7 +73,7 @@ function DailyNoteModal({
   };
 
   const insertNowTime = () => {
-    insertText(`- ${getNowTimeLabel()} `);
+    insertText(`#### ${getNowTimeLabel()} `);
   };
 
   if (!open) return null;
@@ -88,7 +88,7 @@ function DailyNoteModal({
           <>
             <div className="note-toolbar">
               <button type="button" onClick={insertNowTime}>插入当前时间</button>
-              <button type="button" onClick={() => insertText('## 今日总结')}>插入二级标题</button>
+              <button type="button" onClick={() => insertText('### ')}>插入三级标题</button>
             </div>
             <textarea
               className="daily-note-textarea"

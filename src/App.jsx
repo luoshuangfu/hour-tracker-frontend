@@ -89,6 +89,7 @@ function App() {
   const [authForm, setAuthForm] = useState({ username: '', email: '', password: '' });
   const [showResetPassword, setShowResetPassword] = useState(false);
   const [resetForm, setResetForm] = useState({ email: '', code: '', newPassword: '' });
+  const [showUserSettings, setShowUserSettings] = useState(false);
 
   const fetchBlocks = useCallback(async () => {
     setLoading(true);
@@ -237,6 +238,7 @@ function App() {
 
   const handleLogout = () => {
     clearToken();
+    setShowUserSettings(false);
     setUser(null);
     setBlocks([]);
     setExpandedHour(null);
@@ -482,19 +484,33 @@ function App() {
   return (
     <div className="app timeline-app">
       <div className="header">
+        <div className="header-user-settings">
+          <button
+            type="button"
+            className="settings-trigger"
+            onClick={() => setShowUserSettings((prev) => !prev)}
+          >
+            用户设置
+          </button>
+          {showUserSettings && (
+            <div className="settings-menu">
+              <div className="settings-user-info">
+                <div>当前用户：{user.username}</div>
+                <div>{user.email}</div>
+              </div>
+              <button type="button" onClick={handleLogout}>退出登录</button>
+            </div>
+          )}
+        </div>
         <h1>24 Hour Tracker</h1>
         <p>每小时都有自己的价值</p>
-        <div className="user-bar">
-          <span>当前用户：{user.username}（{user.email}）</span>
-          <button onClick={handleLogout}>退出登录</button>
-        </div>
       </div>
 
       <div className="date-nav">
         <button onClick={prevDay}>&larr; 前一天</button>
-        <span className="current-date">{currentDate}</span>
-        <button onClick={nextDay}>后一天 &rarr;</button>
         <button onClick={today}>今天</button>
+        <button onClick={nextDay}>后一天 &rarr;</button>
+        <span className="current-date">{currentDate}</span>
       </div>
 
       
