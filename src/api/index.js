@@ -1,6 +1,7 @@
 import axios from 'axios';
 
 const TOKEN_KEY = 'hour_tracker_token';
+const DOWNLOAD_PATH_KEY = 'hour_tracker_markdown_download_path';
 
 const api = axios.create({
   baseURL: '/api',
@@ -42,6 +43,11 @@ export async function me() {
   return res.data;
 }
 
+export async function updateProfile(username) {
+  const res = await api.put('/auth/profile', { username });
+  return res.data;
+}
+
 export async function sendPasswordResetCode(email) {
   const res = await api.post('/auth/password-reset/send-code', { email });
   return res.data;
@@ -72,12 +78,23 @@ export async function generateReview(date) {
   return res.data;
 }
 
+export function getMarkdownDownloadPath() {
+  return localStorage.getItem(DOWNLOAD_PATH_KEY) || 'exports/review';
+}
+
+export function setMarkdownDownloadPath(path) {
+  localStorage.setItem(DOWNLOAD_PATH_KEY, path);
+}
+
+
 export async function exportReview(date) {
   const res = await api.get(`/reviews/${date}/export`, { responseType: 'blob' });
   const url = window.URL.createObjectURL(new Blob([res.data]));
+  const basePath = getMarkdownDownloadPath().replace(/\\+$/g, '').trim();
+  const fileName = basePath ? `${basePath}/review-${date}.md` : `review-${date}.md`;
   const link = document.createElement('a');
   link.href = url;
-  link.setAttribute('download', `review-${date}.md`);
+  link.setAttribute('download', fileName);
   document.body.appendChild(link);
   link.click();
   link.remove();

@@ -8,9 +8,12 @@ import {
   register,
   login,
   me,
+  updateProfile,
   getToken,
   setToken,
   clearToken,
+  getMarkdownDownloadPath,
+  setMarkdownDownloadPath,
   sendPasswordResetCode,
   confirmPasswordReset,
   getDailyNotes,
@@ -90,6 +93,11 @@ function App() {
   const [showResetPassword, setShowResetPassword] = useState(false);
   const [resetForm, setResetForm] = useState({ email: '', code: '', newPassword: '' });
   const [showUserSettings, setShowUserSettings] = useState(false);
+  const [activePage, setActivePage] = useState('tracker');
+  const [settingsTab, setSettingsTab] = useState('username');
+  const [helpTab, setHelpTab] = useState('overview');
+  const [profileForm, setProfileForm] = useState({ username: '' });
+  const [exportForm, setExportForm] = useState({ markdownPath: getMarkdownDownloadPath() });
 
   const fetchBlocks = useCallback(async () => {
     setLoading(true);
@@ -129,6 +137,7 @@ function App() {
       try {
         const data = await me();
         setUser(data.user);
+        setProfileForm({ username: data.user?.username || '' });
       } catch (_err) {
         clearToken();
         setUser(null);
@@ -144,6 +153,12 @@ function App() {
       fetchBlocks();
     }
   }, [user, fetchBlocks]);
+
+  useEffect(() => {
+    if (user?.username) {
+      setProfileForm((prev) => ({ ...prev, username: user.username }));
+    }
+  }, [user]);
 
   const loadDailyNotes = useCallback(async () => {
     if (!user) return;
@@ -239,10 +254,25 @@ function App() {
   const handleLogout = () => {
     clearToken();
     setShowUserSettings(false);
+    setActivePage('tracker');
     setUser(null);
     setBlocks([]);
     setExpandedHour(null);
     showToast('已退出登录');
+  };
+
+  const handleSettings = () => {
+    setShowUserSettings(false);
+    setSettingsTab('username');
+    setProfileForm({ username: user?.username || '' });
+    setExportForm({ markdownPath: getMarkdownDownloadPath() });
+    setActivePage('settings');
+  };
+
+  const handleHelp = () => {
+    setShowUserSettings(false);
+    setHelpTab('overview');
+    setActivePage('help');
   };
 
   const handleBlockChange = async (hour, field, value) => {
@@ -363,6 +393,40 @@ function App() {
     } catch (err) {
       showToast(err?.response?.data?.message || '删除任务失败');
     }
+  };
+
+  const handleSaveUsername = async (e) => {
+    e.preventDefault();
+    const nextName = profileForm.username.trim();
+    if (!nextName) {
+      showToast('用户名不能为空');
+      return;
+    }
+    try {
+      const data = await updateProfile(nextName);
+      if (data?.token) {
+        setToken(data.token);
+      }
+      if (data?.user) {
+        setUser(data.user);
+        setProfileForm({ username: data.user.username || '' });
+      }
+      showToast(data?.message || '用户名已更新');
+    } catch (err) {
+      showToast(err?.response?.data?.message || '用户名更新失败');
+    }
+  };
+
+  const handleSaveExportPath = (e) => {
+    e.preventDefault();
+    const nextPath = exportForm.markdownPath.trim();
+    if (!nextPath) {
+      showToast('导出路径不能为空');
+      return;
+    }
+    setMarkdownDownloadPath(nextPath);
+    setExportForm({ markdownPath: nextPath });
+    showToast(`Markdown导出路径已更新为：${nextPath}`);
   };
 
   const prevDay = () => setCurrentDate(dayjs(currentDate).subtract(1, 'day').format('YYYY-MM-DD'));
@@ -490,14 +554,15 @@ function App() {
             className="settings-trigger"
             onClick={() => setShowUserSettings((prev) => !prev)}
           >
-            用户设置
+            {user.username}
           </button>
           {showUserSettings && (
             <div className="settings-menu">
               <div className="settings-user-info">
-                <div>当前用户：{user.username}</div>
                 <div>{user.email}</div>
               </div>
+              <button type="button" onClick={handleSettings}>设置</button>
+              <button type="button" onClick={handleHelp}>使用说明</button>
               <button type="button" onClick={handleLogout}>退出登录</button>
             </div>
           )}
@@ -506,14 +571,107 @@ function App() {
         <p>每小时都有自己的价值</p>
       </div>
 
+      {activePage === 'settings' && (
+        <div className="page-shell">
+          <aside className="page-sidebar">
+            <button
+              className={`page-nav-item ${settingsTab === 'username' ? 'active' : ''}`}
+              onClick={() => setSettingsTab('username')}
+            >
+              修改用户名
+            </button>
+            <button
+              className={`page-nav-item ${settingsTab === 'export' ? 'active' : ''}`}
+              onClick={() => setSettingsTab('export')}
+            >
+              Markdown 导出路径
+            </button>
+          </aside>
+          <section className="page-content">
+            <div className="page-content-header">
+              <h2>设置中心</h2>
+              <button type="button" onClick={() => setActivePage('tracker')}>返回主页</button>
+            </div>
+
+            {settingsTab === 'username' ? (
+              <form className="settings-form" onSubmit={handleSaveUsername}>
+                <label>新用户名</label>
+                <input
+                  value={profileForm.username}
+                  onChange={(e) => setProfileForm({ username: e.target.value })}
+                  placeholder="请输入新用户名"
+                />
+                <button type="submit">保存用户名</button>
+              </form>
+            ) : (
+              <form className="settings-form" onSubmit={handleSaveExportPath}>
+                <label>Markdown 导出路径</label>
+                <input
+                  value={exportForm.markdownPath}
+                  onChange={(e) => setExportForm({ markdownPath: e.target.value })}
+                  placeholder="例如 exports/review"
+                />
+                <button type="submit">保存路径</button>
+              </form>
+            )}
+          </section>
+        </div>
+      )}
+
+      {activePage === 'help' && (
+        <div className="page-shell">
+          <aside className="page-sidebar">
+            <button className={`page-nav-item ${helpTab === 'overview' ? 'active' : ''}`} onClick={() => setHelpTab('overview')}>概览</button>
+            <button className={`page-nav-item ${helpTab === 'timeline' ? 'active' : ''}`} onClick={() => setHelpTab('timeline')}>时间轴填写</button>
+            <button className={`page-nav-item ${helpTab === 'tasks' ? 'active' : ''}`} onClick={() => setHelpTab('tasks')}>任务管理</button>
+            <button className={`page-nav-item ${helpTab === 'review' ? 'active' : ''}`} onClick={() => setHelpTab('review')}>复盘与导出</button>
+          </aside>
+          <section className="page-content">
+            <div className="page-content-header">
+              <h2>使用说明</h2>
+              <button type="button" onClick={() => setActivePage('tracker')}>返回主页</button>
+            </div>
+            {helpTab === 'overview' && <div className="help-content">本系统用于按小时记录目标与执行结果，并支持每日复盘导出。
+
+左侧导航类似“文件列表”，点击不同条目时，右侧会展示对应的说明内容。</div>}
+            {helpTab === 'timeline' && <div className="help-content">时间轴填写：
+1. 点击某个小时块展开编辑区；
+<br/>
+2. 填写预期目标、实际完成、评分与备注；<br/>
+3. 根据实际情况定义颜色，颜色含义如下：<br/>
+   - 蓝色：学习与自我提升，特征在于**知识输入型**，吸收知识<br/>
+   - 红色：事业与工作，特征在于**劳动输出型**，对社会创造价值<br/>
+   - 绿色：生活与健康，身体健康、卫生打扫，特征在于**对内在身体（物理）的关注**<br/>
+   - 黄色：家庭与社交与健康娱乐，特征在于**对内在情感（心理）的关注**<br/>
+   - 白色：写日记、统计时间、询问使用时间的意义，特征在于对过往的时间进行总结优化<br/>
+   - 灰色：潜能色，自己觉得时间浪费掉了的时间<br/>  
+   - 黑色：未设定类型的时间默认为黑色<br/>
+   睡眠时间论外，不统计在内<br/>
+4. 页面会自动保存该小时数据。<br/>
+5. 建议每日蓝色+红色与绿色+黄色块数尽量为1:1，这样有利于平衡生活与工作，同时也有利于身心健康。<br/>
+6. 若灰色+黑色块数过多，建议重新审视自己的时间使用情况，是否存在时间浪费的情况。</div>}
+            {helpTab === 'tasks' && <div className="help-content">任务管理：
+1. 在输入框中输入任务并回车/点击“新增”；<br/>
+2. 双击任务文本可改名；<br/>
+3. 点击 ○ 标记完成；<br/>
+4. 点击“删除”移除任务。<br/>
+5. 同时正在执行的任务最多3条，超过3条后，需要先完成当前任务，才能新增任务。</div>}
+            {helpTab === 'review' && <div className="help-content">复盘与导出：
+1. 点击“生成复盘”整理当日总结；
+2. 点击“导出 Markdown”下载文档；
+3. 导出文件名遵循设置中的 Markdown 导出路径。</div>}
+          </section>
+        </div>
+      )}
+
+      {activePage === 'tracker' && (
+        <>
       <div className="date-nav">
         <button onClick={prevDay}>&larr; 前一天</button>
         <button onClick={today}>今天</button>
         <button onClick={nextDay}>后一天 &rarr;</button>
         <span className="current-date">{currentDate}</span>
       </div>
-
-      
 
       <div className="top-panels">
         <div className="stats-panel">
@@ -594,6 +752,8 @@ function App() {
           onClose={() => setShowReview(false)}
           onExport={handleExport}
         />
+      )}
+        </>
       )}
 
       <DailyNoteModal
